@@ -7,10 +7,28 @@ import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/types/BeforeSwapDelta.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
+import {PoolId} from "v4-core/types/PoolId.sol";
+
+interface IServiceManager {
+    function createNewTask(
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96,
+        address sender,
+        bytes32 poolId
+    ) external;
+}
 
 contract UniCowHook is BaseHook {
+    address serviceManager;
+
     // Initialize BaseHook and ERC20
-    constructor(IPoolManager _manager) BaseHook(_manager) {}
+    constructor(
+        IPoolManager _manager,
+        address _serviceManager
+    ) BaseHook(_manager) {
+        serviceManager = _serviceManager;
+    }
 
     event PendingOrder(
         address indexed sender,
@@ -69,15 +87,26 @@ contract UniCowHook is BaseHook {
             return (UniCowHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
         }
 
-        uint256 amount = uint256(-swapParams.amountSpecified);
-        Currency input = swapParams.zeroForOne ? key.currency0 : key.currency1;
-        poolManager.mint(address(this), input.toId(), amount);
+        poolManager.mint(
+            address(this),
+            (swapParams.zeroForOne ? key.currency0 : key.currency1).toId(),
+            uint256(-swapParams.amountSpecified)
+        );
 
-        emit PendingOrder(sender, swapParams);
+        IServiceManager(serviceManager).createNewTask(
+            swapParams.zeroForOne,
+            swapParams.amountSpecified,
+            swapParams.sqrtPriceLimitX96,
+            sender,
+            PoolId.unwrap(key.toId())
+        );
+
         return (
             UniCowHook.beforeSwap.selector,
             toBeforeSwapDelta(-int128(swapParams.amountSpecified), 0),
             0
         );
     }
+
+    receive() external payable {}
 }

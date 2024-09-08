@@ -1,0 +1,19 @@
+{
+  "name": "unicow",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "bls-signatures": "^2.0.3",
+    "dotenv": "^10.0.0",
+    "ethers": "^5.7.2",
+    "viem": "^2.21.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}
