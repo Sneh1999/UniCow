@@ -11,6 +11,8 @@ import {IPoolManager} from "../interfaces/IPoolManager.sol";
 import {ParseBytes} from "./ParseBytes.sol";
 import {CustomRevert} from "./CustomRevert.sol";
 
+import "forge-std/console.sol";
+
 /// @notice V4 decides whether to invoke specific hooks by inspecting the least significant bits
 /// of the address that the hooks contract is deployed to.
 /// For example, a hooks contract deployed to address: 0x0000000000000000000000000000000000002400
@@ -82,21 +84,20 @@ library Hooks {
     /// @dev permissions param is memory as the function will be called from constructors
     function validateHookPermissions(IHooks self, Permissions memory permissions) internal pure {
         if (
-            permissions.beforeInitialize != self.hasPermission(BEFORE_INITIALIZE_FLAG)
-                || permissions.afterInitialize != self.hasPermission(AFTER_INITIALIZE_FLAG)
-                || permissions.beforeAddLiquidity != self.hasPermission(BEFORE_ADD_LIQUIDITY_FLAG)
-                || permissions.afterAddLiquidity != self.hasPermission(AFTER_ADD_LIQUIDITY_FLAG)
-                || permissions.beforeRemoveLiquidity != self.hasPermission(BEFORE_REMOVE_LIQUIDITY_FLAG)
-                || permissions.afterRemoveLiquidity != self.hasPermission(AFTER_REMOVE_LIQUIDITY_FLAG)
-                || permissions.beforeSwap != self.hasPermission(BEFORE_SWAP_FLAG)
-                || permissions.afterSwap != self.hasPermission(AFTER_SWAP_FLAG)
-                || permissions.beforeDonate != self.hasPermission(BEFORE_DONATE_FLAG)
-                || permissions.afterDonate != self.hasPermission(AFTER_DONATE_FLAG)
-                || permissions.beforeSwapReturnDelta != self.hasPermission(BEFORE_SWAP_RETURNS_DELTA_FLAG)
-                || permissions.afterSwapReturnDelta != self.hasPermission(AFTER_SWAP_RETURNS_DELTA_FLAG)
-                || permissions.afterAddLiquidityReturnDelta != self.hasPermission(AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG)
-                || permissions.afterRemoveLiquidityReturnDelta
-                    != self.hasPermission(AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG)
+            permissions.beforeInitialize != self.hasPermission(BEFORE_INITIALIZE_FLAG) ||
+            permissions.afterInitialize != self.hasPermission(AFTER_INITIALIZE_FLAG) ||
+            permissions.beforeAddLiquidity != self.hasPermission(BEFORE_ADD_LIQUIDITY_FLAG) ||
+            permissions.afterAddLiquidity != self.hasPermission(AFTER_ADD_LIQUIDITY_FLAG) ||
+            permissions.beforeRemoveLiquidity != self.hasPermission(BEFORE_REMOVE_LIQUIDITY_FLAG) ||
+            permissions.afterRemoveLiquidity != self.hasPermission(AFTER_REMOVE_LIQUIDITY_FLAG) ||
+            permissions.beforeSwap != self.hasPermission(BEFORE_SWAP_FLAG) ||
+            permissions.afterSwap != self.hasPermission(AFTER_SWAP_FLAG) ||
+            permissions.beforeDonate != self.hasPermission(BEFORE_DONATE_FLAG) ||
+            permissions.afterDonate != self.hasPermission(AFTER_DONATE_FLAG) ||
+            permissions.beforeSwapReturnDelta != self.hasPermission(BEFORE_SWAP_RETURNS_DELTA_FLAG) ||
+            permissions.afterSwapReturnDelta != self.hasPermission(AFTER_SWAP_RETURNS_DELTA_FLAG) ||
+            permissions.afterAddLiquidityReturnDelta != self.hasPermission(AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG) ||
+            permissions.afterRemoveLiquidityReturnDelta != self.hasPermission(AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG)
         ) {
             HookAddressNotValid.selector.revertWith(address(self));
         }
@@ -110,20 +111,22 @@ library Hooks {
         // The hook can only have a flag to return a hook delta on an action if it also has the corresponding action flag
         if (!self.hasPermission(BEFORE_SWAP_FLAG) && self.hasPermission(BEFORE_SWAP_RETURNS_DELTA_FLAG)) return false;
         if (!self.hasPermission(AFTER_SWAP_FLAG) && self.hasPermission(AFTER_SWAP_RETURNS_DELTA_FLAG)) return false;
-        if (!self.hasPermission(AFTER_ADD_LIQUIDITY_FLAG) && self.hasPermission(AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG))
-        {
+        if (
+            !self.hasPermission(AFTER_ADD_LIQUIDITY_FLAG) && self.hasPermission(AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG)
+        ) {
             return false;
         }
         if (
-            !self.hasPermission(AFTER_REMOVE_LIQUIDITY_FLAG)
-                && self.hasPermission(AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG)
+            !self.hasPermission(AFTER_REMOVE_LIQUIDITY_FLAG) &&
+            self.hasPermission(AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG)
         ) return false;
 
         // If there is no hook contract set, then fee cannot be dynamic
         // If a hook contract is set, it must have at least 1 flag set, or have a dynamic fee
-        return address(self) == address(0)
-            ? !fee.isDynamicFee()
-            : (uint160(address(self)) & ALL_HOOK_MASK > 0 || fee.isDynamicFee());
+        return
+            address(self) == address(0)
+                ? !fee.isDynamicFee()
+                : (uint160(address(self)) & ALL_HOOK_MASK > 0 || fee.isDynamicFee());
     }
 
     /// @notice performs a hook call using the given calldata on the given hook that doesnt return a delta
@@ -175,20 +178,25 @@ library Hooks {
     }
 
     /// @notice calls beforeInitialize hook if permissioned and validates return value
-    function beforeInitialize(IHooks self, PoolKey memory key, uint160 sqrtPriceX96, bytes calldata hookData)
-        internal
-        noSelfCall(self)
-    {
+    function beforeInitialize(
+        IHooks self,
+        PoolKey memory key,
+        uint160 sqrtPriceX96,
+        bytes calldata hookData
+    ) internal noSelfCall(self) {
         if (self.hasPermission(BEFORE_INITIALIZE_FLAG)) {
             self.callHook(abi.encodeCall(IHooks.beforeInitialize, (msg.sender, key, sqrtPriceX96, hookData)));
         }
     }
 
     /// @notice calls afterInitialize hook if permissioned and validates return value
-    function afterInitialize(IHooks self, PoolKey memory key, uint160 sqrtPriceX96, int24 tick, bytes calldata hookData)
-        internal
-        noSelfCall(self)
-    {
+    function afterInitialize(
+        IHooks self,
+        PoolKey memory key,
+        uint160 sqrtPriceX96,
+        int24 tick,
+        bytes calldata hookData
+    ) internal noSelfCall(self) {
         if (self.hasPermission(AFTER_INITIALIZE_FLAG)) {
             self.callHook(abi.encodeCall(IHooks.afterInitialize, (msg.sender, key, sqrtPriceX96, tick, hookData)));
         }
@@ -225,7 +233,8 @@ library Hooks {
                 hookDelta = BalanceDelta.wrap(
                     self.callHookWithReturnDelta(
                         abi.encodeCall(
-                            IHooks.afterAddLiquidity, (msg.sender, key, params, delta, feesAccrued, hookData)
+                            IHooks.afterAddLiquidity,
+                            (msg.sender, key, params, delta, feesAccrued, hookData)
                         ),
                         self.hasPermission(AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG)
                     )
@@ -237,7 +246,8 @@ library Hooks {
                 hookDelta = BalanceDelta.wrap(
                     self.callHookWithReturnDelta(
                         abi.encodeCall(
-                            IHooks.afterRemoveLiquidity, (msg.sender, key, params, delta, feesAccrued, hookData)
+                            IHooks.afterRemoveLiquidity,
+                            (msg.sender, key, params, delta, feesAccrued, hookData)
                         ),
                         self.hasPermission(AFTER_REMOVE_LIQUIDITY_RETURNS_DELTA_FLAG)
                     )
@@ -248,15 +258,20 @@ library Hooks {
     }
 
     /// @notice calls beforeSwap hook if permissioned and validates return value
-    function beforeSwap(IHooks self, PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
-        internal
-        returns (int256 amountToSwap, BeforeSwapDelta hookReturn, uint24 lpFeeOverride)
-    {
+    function beforeSwap(
+        IHooks self,
+        PoolKey memory key,
+        IPoolManager.SwapParams memory params,
+        bytes calldata hookData
+    ) internal returns (int256 amountToSwap, BeforeSwapDelta hookReturn, uint24 lpFeeOverride) {
         amountToSwap = params.amountSpecified;
         if (msg.sender == address(self)) return (amountToSwap, BeforeSwapDeltaLibrary.ZERO_DELTA, lpFeeOverride);
 
         if (self.hasPermission(BEFORE_SWAP_FLAG)) {
-            bytes memory result = callHook(self, abi.encodeCall(IHooks.beforeSwap, (msg.sender, key, params, hookData)));
+            bytes memory result = callHook(
+                self,
+                abi.encodeCall(IHooks.beforeSwap, (msg.sender, key, params, hookData))
+            );
 
             // A length of 96 bytes is required to return a bytes4, a 32 byte delta, and an LP fee
             if (result.length != 96) InvalidHookResponse.selector.revertWith();
@@ -298,10 +313,12 @@ library Hooks {
         int128 hookDeltaUnspecified = beforeSwapHookReturn.getUnspecifiedDelta();
 
         if (self.hasPermission(AFTER_SWAP_FLAG)) {
-            hookDeltaUnspecified += self.callHookWithReturnDelta(
-                abi.encodeCall(IHooks.afterSwap, (msg.sender, key, params, swapDelta, hookData)),
-                self.hasPermission(AFTER_SWAP_RETURNS_DELTA_FLAG)
-            ).toInt128();
+            hookDeltaUnspecified += self
+                .callHookWithReturnDelta(
+                    abi.encodeCall(IHooks.afterSwap, (msg.sender, key, params, swapDelta, hookData)),
+                    self.hasPermission(AFTER_SWAP_RETURNS_DELTA_FLAG)
+                )
+                .toInt128();
         }
 
         BalanceDelta hookDelta;
@@ -317,20 +334,26 @@ library Hooks {
     }
 
     /// @notice calls beforeDonate hook if permissioned and validates return value
-    function beforeDonate(IHooks self, PoolKey memory key, uint256 amount0, uint256 amount1, bytes calldata hookData)
-        internal
-        noSelfCall(self)
-    {
+    function beforeDonate(
+        IHooks self,
+        PoolKey memory key,
+        uint256 amount0,
+        uint256 amount1,
+        bytes calldata hookData
+    ) internal noSelfCall(self) {
         if (self.hasPermission(BEFORE_DONATE_FLAG)) {
             self.callHook(abi.encodeCall(IHooks.beforeDonate, (msg.sender, key, amount0, amount1, hookData)));
         }
     }
 
     /// @notice calls afterDonate hook if permissioned and validates return value
-    function afterDonate(IHooks self, PoolKey memory key, uint256 amount0, uint256 amount1, bytes calldata hookData)
-        internal
-        noSelfCall(self)
-    {
+    function afterDonate(
+        IHooks self,
+        PoolKey memory key,
+        uint256 amount0,
+        uint256 amount1,
+        bytes calldata hookData
+    ) internal noSelfCall(self) {
         if (self.hasPermission(AFTER_DONATE_FLAG)) {
             self.callHook(abi.encodeCall(IHooks.afterDonate, (msg.sender, key, amount0, amount1, hookData)));
         }

@@ -38,7 +38,7 @@ SERVICE_MANAGER_PROXY_ADDRESS=$(cat script/output/31337/unicow_avs_deployment_ou
 # deploying hook contracts
 cd $parent_path
 cd ../hook
-
+forge clean
 forge script script/HookDeployer.s.sol --private-key $PRIVATE_KEY -vvvvv --broadcast --sig "run(address serviceManager)" -- $SERVICE_MANAGER_PROXY_ADDRESS
 
 # consolidate output addresses

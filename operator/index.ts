@@ -21,7 +21,7 @@ const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
 const stakeRegistryAddress = process.env
   .STAKE_REGISTRY_ADDRESS! as `0x${string}`;
 
-const walleClient = createWalletClient({
+const walletClient = createWalletClient({
   chain: process.env.IS_DEV === "true" ? anvil : holesky,
   transport: http(),
   account,
@@ -35,25 +35,25 @@ const publicClient = createPublicClient({
 const delegationManager = getContract({
   address: process.env.DELEGATION_MANAGER_ADDRESS! as `0x${string}`,
   abi: DelegationManagerABI,
-  client: { public: publicClient, wallet: walleClient },
+  client: { public: publicClient, wallet: walletClient },
 });
 
 const registryContract = getContract({
   address: stakeRegistryAddress,
   abi: StakeRegistryABI,
-  client: { public: publicClient, wallet: walleClient },
+  client: { public: publicClient, wallet: walletClient },
 });
 
 const avsDirectory = getContract({
   address: process.env.AVS_DIRECTORY_ADDRESS! as `0x${string}`,
   abi: AvsDirectoryABI,
-  client: { public: publicClient, wallet: walleClient },
+  client: { public: publicClient, wallet: walletClient },
 });
 
 const serviceManager = getContract({
   address: process.env.SERVICE_MANAGER_ADDRESS! as `0x${string}`,
   abi: ServiceManagerABI,
-  client: { public: publicClient, wallet: walleClient },
+  client: { public: publicClient, wallet: walletClient },
 });
 
 async function registerOperator() {
@@ -87,14 +87,13 @@ async function registerOperator() {
     const digestHash =
       await avsDirectory.read.calculateOperatorAVSRegistrationDigestHash([
         account.address,
-        process.env.AVS_ADDRESS! as `0x${string}`,
+        process.env.SERVICE_MANAGER_ADDRESS! as `0x${string}`,
         salt,
         BigInt(expiry),
       ]);
 
-    const signature = await signMessage({
-      message: digestHash,
-      privateKey: process.env.PRIVATE_KEY! as `0x${string}`,
+    const signature = await account.sign({
+      hash: digestHash,
     });
 
     const tx2 = await registryContract.write.registerOperatorWithSignature([
@@ -114,15 +113,15 @@ async function registerOperator() {
 }
 
 const monitorNewTasks = async () => {
-  const unwatch = publicClient.watchEvent({
-    address: serviceManager.address,
-    event: parseAbiItem(
-      "event NewTaskCreated(uint32 indexed taskIndex, Task task)"
-    ),
-    onLogs: (logs) => {
-      console.log(logs);
-    },
-  });
+  const unwatch = serviceManager.watchEvent.NewTaskCreated(
+    {},
+    {
+      onLogs: (logs) => {
+        console.log(logs);
+      },
+    }
+  );
+
   return unwatch;
 };
 
