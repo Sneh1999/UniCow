@@ -36,8 +36,7 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
     constructor(
         address _avsDirectory,
         address _stakeRegistry,
-        address _delegationManager,
-        address _hook
+        address _delegationManager
     )
         ECDSAServiceManagerBase(
             _avsDirectory,
@@ -45,9 +44,7 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
             address(0),
             _delegationManager
         )
-    {
-        hook = _hook;
-    }
+    {}
 
     function createNewTask(
         bool zeroForOne,
@@ -55,7 +52,7 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
         uint160 sqrtPriceLimitX96,
         address sender,
         bytes32 poolId
-    ) external {
+    ) external onlyHook {
         Task memory task = Task({
             zeroForOne: zeroForOne,
             amountSpecified: amountSpecified,
@@ -67,5 +64,9 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
         allTaskHashes[latestTaskNum] = keccak256(abi.encode(task));
         emit NewTaskCreated(latestTaskNum, task);
         latestTaskNum++;
+    }
+
+    function setHook(address _hook) external {
+        hook = _hook;
     }
 }

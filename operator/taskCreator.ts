@@ -53,7 +53,10 @@ async function createTask() {
       takeClaims: false,
       settleUsingBurn: false,
     },
-    "0x" as `0x${string}`,
+    encodeAbiParameters(parseAbiParameters("int8,address"), [
+      1,
+      account.address,
+    ]),
   ]);
 
   await waitForTransactionReceipt(publicClient, {

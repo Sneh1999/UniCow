@@ -12,6 +12,7 @@ import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 
 import {UniCowHook} from "../src/UniCowHook.sol";
+import {HookMiner} from "../test/utils/HookMiner.sol";
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
@@ -36,11 +37,9 @@ contract HookDeployer is Script, StdCheats {
         vm.startBroadcast();
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
-        vm.stopBroadcast();
 
         deployHookToAnvil(serviceManager);
 
-        vm.startBroadcast();
         initPoolAndAddLiquidity();
         vm.stopBroadcast();
 
@@ -124,23 +123,14 @@ contract HookDeployer is Script, StdCheats {
         uint160 flags = uint160(
             Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
         );
-
-        bytes memory hookCreationCode = vm.getCode("UniCowHook.sol:UniCowHook");
-        bytes memory runtimeBytecode = abi.encodePacked(
-            hookCreationCode,
-            abi.encode(manager, serviceManager)
+        (address hookAddress, bytes32 salt) = HookMiner.find(
+            CREATE2_DEPLOYER,
+            flags,
+            type(UniCowHook).creationCode,
+            abi.encode(address(manager), serviceManager)
         );
-
-        string memory params = string.concat(
-            '["',
-            vm.toString(address(flags)),
-            '","',
-            vm.toString(runtimeBytecode),
-            '"]'
-        );
-
-        vm.rpc("anvil_setCode", params);
-        hook = UniCowHook(payable(address(flags)));
+        hook = new UniCowHook{salt: salt}(manager, serviceManager);
+        require(address(hook) == hookAddress, "hook: hook address mismatch");
     }
 
     function initPoolAndAddLiquidity() internal {
@@ -168,18 +158,18 @@ contract HookDeployer is Script, StdCheats {
             new bytes(0)
         );
 
-        swapRouter.swap(
-            poolKey,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -0.001 ether,
-                sqrtPriceLimitX96: 4295128739 + 1
-            }),
-            PoolSwapTest.TestSettings({
-                takeClaims: false,
-                settleUsingBurn: false
-            }),
-            new bytes(0)
-        );
+        // swapRouter.swap(
+        //     poolKey,
+        //     IPoolManager.SwapParams({
+        //         zeroForOne: true,
+        //         amountSpecified: -0.001 ether,
+        //         sqrtPriceLimitX96: 4295128739 + 1
+        //     }),
+        //     PoolSwapTest.TestSettings({
+        //         takeClaims: false,
+        //         settleUsingBurn: false
+        //     }),
+        //     abi.encode(int8(1), msg.sender)
+        // );
     }
 }

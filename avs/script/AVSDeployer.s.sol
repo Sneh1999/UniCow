@@ -35,13 +35,6 @@ contract AVSDeployer is Script, Utils {
     UniCowServiceManager public serviceManagerProxy;
     UniCowServiceManager public serviceManagerImpl;
 
-    /**
-    hook = address(uint160(
-        Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
-    ));
-    */
-    address public hook = address(uint160((1 << 7) | (1 << 3)));
-
     function run() external {
         vm.createSelectFork("http://localhost:8545");
 
@@ -237,8 +230,7 @@ contract AVSDeployer is Script, Utils {
         serviceManagerImpl = new UniCowServiceManager(
             address(avsDirectory),
             address(stakeRegistryProxy),
-            address(delegationManager),
-            hook
+            address(delegationManager)
         );
         // Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
         avsProxyAdmin.upgrade(

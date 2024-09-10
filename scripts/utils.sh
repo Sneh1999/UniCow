@@ -3,7 +3,7 @@
 set -e -o nounset
 
 # pinning at old foundry commit because of https://github.com/foundry-rs/foundry/issues/7502
-FOUNDRY_IMAGE=ghcr.io/foundry-rs/foundry:nightly-5b7e4cb3c882b28f3c32ba580de27ce7381f415a
+FOUNDRY_IMAGE=ghcr.io/foundry-rs/foundry:nightly
 
 parent_path=$(
     cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -32,7 +32,7 @@ start_anvil_docker() {
     echo $LOAD_STATE_VOLUME_DOCKER_ARG $DUMP_STATE_VOLUME_DOCKER_ARG
     echo $LOAD_STATE_ANVIL_ARG $DUMP_STATE_ANVIL_ARG
     trap 'docker stop anvil' EXIT
-    docker run --rm -d --name anvil -p 8545:8545 $LOAD_STATE_VOLUME_DOCKER_ARG $DUMP_STATE_VOLUME_DOCKER_ARG \
+    docker run --platform linux/amd64 --rm -d --name anvil -p 8545:8545 $LOAD_STATE_VOLUME_DOCKER_ARG $DUMP_STATE_VOLUME_DOCKER_ARG \
         --entrypoint anvil \
         $FOUNDRY_IMAGE \
         $LOAD_STATE_ANVIL_ARG $DUMP_STATE_ANVIL_ARG --hardfork cancun --host 0.0.0.0

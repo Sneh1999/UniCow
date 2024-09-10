@@ -7,6 +7,7 @@ import {
   getContract,
   http,
   parseAbiItem,
+  parseEventLogs,
 } from "viem";
 import { privateKeyToAccount, signMessage } from "viem/accounts";
 import { anvil, holesky } from "viem/chains";
@@ -118,6 +119,11 @@ const monitorNewTasks = async () => {
     {
       onLogs: (logs) => {
         console.log(logs);
+        const parsedLogs = parseEventLogs({
+          logs: logs,
+          abi: ServiceManagerABI,
+        });
+        console.log(parsedLogs[0].args.task);
       },
     }
   );

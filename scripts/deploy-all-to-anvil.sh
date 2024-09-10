@@ -41,6 +41,11 @@ cd ../hook
 forge clean
 forge script script/HookDeployer.s.sol --private-key $PRIVATE_KEY -vvvvv --broadcast --sig "run(address serviceManager)" -- $SERVICE_MANAGER_PROXY_ADDRESS
 
+HOOK_ADDRESS=$(cat script/output/31337/unicow_hook_deployment_output.json | jq -r '.addresses.hook')
+
+# set hook address in AVS service manager
+cast send --private-key $PRIVATE_KEY --gas-limit 1000000 $SERVICE_MANAGER_PROXY_ADDRESS "setHook(address)" $HOOK_ADDRESS
+
 # consolidate output addresses
 cd $parent_path
 node ./consolidate-output-addresses.js
