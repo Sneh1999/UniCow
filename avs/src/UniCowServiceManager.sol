@@ -66,6 +66,7 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
         latestTaskNum++;
     }
 
+    //  TODO: function for response where you verify the signatures and call the hook
     function setHook(address _hook) external {
         hook = _hook;
     }

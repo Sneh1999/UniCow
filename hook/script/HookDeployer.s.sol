@@ -157,19 +157,5 @@ contract HookDeployer is Script, StdCheats {
             }),
             new bytes(0)
         );
-
-        // swapRouter.swap(
-        //     poolKey,
-        //     IPoolManager.SwapParams({
-        //         zeroForOne: true,
-        //         amountSpecified: -0.001 ether,
-        //         sqrtPriceLimitX96: 4295128739 + 1
-        //     }),
-        //     PoolSwapTest.TestSettings({
-        //         takeClaims: false,
-        //         settleUsingBurn: false
-        //     }),
-        //     abi.encode(int8(1), msg.sender)
-        // );
     }
 }

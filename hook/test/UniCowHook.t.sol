@@ -23,21 +23,13 @@ import {MockServiceManager} from "../src/MockServiceManager.sol";
 contract TestUniCowHook is Test, Deployers {
     using CurrencyLibrary for Currency;
 
-    MockERC20 token;
-
-    Currency ethCurrency = Currency.wrap(address(0));
-    Currency tokenCurrency;
-
     UniCowHook hook;
     MockServiceManager serviceManager;
 
     function setUp() public {
         deployFreshManagerAndRouters();
 
-        token = new MockERC20("Test Token", "TEST", 18);
-        tokenCurrency = Currency.wrap(address(token));
-
-        token.mint(address(this), 1000 ether);
+        (currency0, currency1) = deployMintAndApprove2Currencies();
 
         serviceManager = new MockServiceManager();
 
@@ -51,12 +43,9 @@ contract TestUniCowHook is Test, Deployers {
         );
         hook = UniCowHook(payable(address(flags)));
 
-        token.approve(address(swapRouter), type(uint256).max);
-        token.approve(address(modifyLiquidityRouter), type(uint256).max);
-
         (key, ) = initPool(
-            ethCurrency,
-            tokenCurrency,
+            currency0,
+            currency1,
             hook,
             3000,
             SQRT_PRICE_1_1,
@@ -77,7 +66,7 @@ contract TestUniCowHook is Test, Deployers {
 
     function test_beforeSwapPendingOrder() public {
         // swap 10 tokens for eth
-        swapRouter.swap{value: 0.001 ether}(
+        swapRouter.swap(
             key,
             IPoolManager.SwapParams({
                 zeroForOne: true,
@@ -93,8 +82,105 @@ contract TestUniCowHook is Test, Deployers {
 
         // get balance delta for hook
         assertEq(
-            manager.balanceOf(address(hook), ethCurrency.toId()),
+            manager.balanceOf(address(hook), currency0.toId()),
             0.001 ether
         );
+    }
+
+    function test_settleBalances() public {
+        MockERC20(Currency.unwrap(key.currency0)).mint(address(0x1), 1 ether);
+
+        vm.startPrank(address(0x1));
+        MockERC20(Currency.unwrap(key.currency0)).approve(
+            address(swapRouter),
+            type(uint256).max
+        );
+        // zeroForOne true
+        swapRouter.swap(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -0.001 ether,
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({
+                takeClaims: false,
+                settleUsingBurn: false
+            }),
+            abi.encode(uint8(1), address(this))
+        );
+        vm.stopPrank();
+        MockERC20(Currency.unwrap(key.currency1)).mint(address(0x2), 1 ether);
+        vm.startPrank(address(0x2));
+        MockERC20(Currency.unwrap(key.currency1)).approve(
+            address(swapRouter),
+            type(uint256).max
+        );
+        // zeroForOne false - Exact Input
+        swapRouter.swap(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: false,
+                amountSpecified: -0.001 ether,
+                sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+            }),
+            PoolSwapTest.TestSettings({
+                takeClaims: false,
+                settleUsingBurn: false
+            }),
+            abi.encode(uint8(1), address(this))
+        );
+        vm.stopPrank();
+        MockERC20(Currency.unwrap(key.currency1)).mint(address(0x3), 1 ether);
+        vm.startPrank(address(0x3));
+        MockERC20(Currency.unwrap(key.currency1)).approve(
+            address(swapRouter),
+            type(uint256).max
+        );
+        // zeroForOne false - Exact Input
+        swapRouter.swap(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: false,
+                amountSpecified: -0.001 ether,
+                sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+            }),
+            PoolSwapTest.TestSettings({
+                takeClaims: false,
+                settleUsingBurn: false
+            }),
+            abi.encode(uint8(1), address(this))
+        );
+
+        UniCowHook.TransferBalance[]
+            memory transferBalances = new UniCowHook.TransferBalance[](2);
+
+        UniCowHook.SwapBalance[]
+            memory swapBalances = new UniCowHook.SwapBalance[](1);
+
+        transferBalances[0] = UniCowHook.TransferBalance({
+            amount: 0.001 ether,
+            currency: Currency.unwrap(key.currency1),
+            sender: address(0x1)
+        });
+
+        transferBalances[1] = UniCowHook.TransferBalance({
+            amount: 0.001 ether,
+            currency: Currency.unwrap(key.currency0),
+            sender: address(0x2)
+        });
+
+        swapBalances[0] = UniCowHook.SwapBalance({
+            zeroForOne: false,
+            amountSpecified: -0.001 ether,
+            sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+        });
+        vm.stopPrank();
+        vm.startPrank(address(serviceManager));
+        hook.settleBalances(key, transferBalances, swapBalances);
+        vm.stopPrank();
+        assertEq(currency1.balanceOf(address(0x1)), 0.001 ether);
+        assertEq(currency0.balanceOf(address(0x2)), 0.001 ether);
+        assertGt(currency1.balanceOf(address(0x3)), 0);
     }
 }

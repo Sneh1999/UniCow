@@ -7,7 +7,10 @@ import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {BeforeSwapDelta, toBeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/types/BeforeSwapDelta.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
+import {BalanceDelta, BalanceDeltaLibrary, add} from "v4-core/types/BalanceDelta.sol";
 import {PoolId} from "v4-core/types/PoolId.sol";
+import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
+import {CurrencySettler} from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
 
 interface IServiceManager {
     function createNewTask(
@@ -20,7 +23,30 @@ interface IServiceManager {
 }
 
 contract UniCowHook is BaseHook {
+    using CurrencyLibrary for Currency;
+    using CurrencySettler for Currency;
+    using BalanceDeltaLibrary for BalanceDelta;
     address public serviceManager;
+
+    struct TransferBalance {
+        uint256 amount;
+        address currency;
+        address sender;
+    }
+
+    struct SwapBalance {
+        int256 amountSpecified;
+        bool zeroForOne;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    modifier onlyAVS() {
+        require(
+            msg.sender == address(serviceManager),
+            "Only AVS Service Manager can call this function"
+        );
+        _;
+    }
 
     // Initialize BaseHook and ERC20
     constructor(
@@ -107,6 +133,92 @@ contract UniCowHook is BaseHook {
             toBeforeSwapDelta(-int128(swapParams.amountSpecified), 0),
             0
         );
+    }
+
+    function _unlockCallback(
+        bytes calldata data
+    ) internal override returns (bytes memory) {
+        (
+            PoolKey memory key,
+            TransferBalance[] memory transferBalances,
+            SwapBalance[] memory swapBalances
+        ) = abi.decode(data, (PoolKey, TransferBalance[], SwapBalance[]));
+        for (uint256 i = 0; i < transferBalances.length; i++) {
+            //  convert from claim tokens to actual tokens and send to user
+            uint256 amount = transferBalances[i].amount;
+
+            poolManager.burn(
+                address(this),
+                Currency.wrap(transferBalances[i].currency).toId(),
+                amount
+            );
+
+            poolManager.take(
+                Currency.wrap(transferBalances[i].currency),
+                transferBalances[i].sender,
+                amount
+            );
+        }
+
+        BalanceDelta swapDelta = BalanceDeltaLibrary.ZERO_DELTA;
+        //  handle swaps
+        for (uint256 i = 0; i < swapBalances.length; i++) {
+            BalanceDelta _swapDelta = poolManager.swap(
+                key,
+                IPoolManager.SwapParams({
+                    zeroForOne: swapBalances[i].zeroForOne,
+                    amountSpecified: swapBalances[i].amountSpecified,
+                    sqrtPriceLimitX96: swapBalances[i].sqrtPriceLimitX96
+                }),
+                new bytes(0)
+            );
+            swapDelta = add(swapDelta, _swapDelta);
+        }
+
+        if (swapDelta.amount0() > 0) {
+            key.currency0.take(
+                poolManager,
+                address(this),
+                uint256(int256(swapDelta.amount0())),
+                false
+            );
+        }
+
+        if (swapDelta.amount0() < 0) {
+            key.currency0.settle(
+                poolManager,
+                address(this),
+                uint256(-int256(swapDelta.amount0())),
+                true
+            );
+        }
+
+        if (swapDelta.amount1() > 0) {
+            key.currency1.take(
+                poolManager,
+                address(this),
+                uint256(int256(swapDelta.amount1())),
+                false
+            );
+        }
+        if (swapDelta.amount1() < 0) {
+            key.currency1.settle(
+                poolManager,
+                address(this),
+                uint256(-int256(swapDelta.amount1())),
+                true
+            );
+        }
+        return new bytes(0);
+    }
+    //  function to settle balances
+
+    function settleBalances(
+        PoolKey memory key,
+        TransferBalance[] memory transferBalances,
+        SwapBalance[] memory swapBalances
+    ) external onlyAVS {
+        poolManager.unlock(abi.encode(key, transferBalances, swapBalances));
     }
 
     receive() external payable {}
