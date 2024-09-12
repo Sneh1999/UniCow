@@ -28,6 +28,8 @@ contract UniCowHook is BaseHook {
     using BalanceDeltaLibrary for BalanceDelta;
     address public serviceManager;
 
+    mapping(bytes32 => PoolKey) public poolKeys;
+
     struct TransferBalance {
         uint256 amount;
         address currency;
@@ -72,7 +74,7 @@ contract UniCowHook is BaseHook {
         return
             Hooks.Permissions({
                 beforeInitialize: false,
-                afterInitialize: false,
+                afterInitialize: true,
                 beforeAddLiquidity: false,
                 beforeRemoveLiquidity: false,
                 afterAddLiquidity: false,
@@ -86,6 +88,17 @@ contract UniCowHook is BaseHook {
                 afterAddLiquidityReturnDelta: false,
                 afterRemoveLiquidityReturnDelta: false
             });
+    }
+
+    function afterInitialize(
+        address,
+        PoolKey calldata key,
+        uint160,
+        int24,
+        bytes calldata
+    ) external override returns (bytes4) {
+        poolKeys[PoolId.unwrap(key.toId())] = key;
+        return this.afterInitialize.selector;
     }
 
     function beforeSwap(
@@ -214,11 +227,11 @@ contract UniCowHook is BaseHook {
     //  function to settle balances
 
     function settleBalances(
-        PoolKey memory key,
+       bytes32 poolId,
         TransferBalance[] memory transferBalances,
         SwapBalance[] memory swapBalances
     ) external onlyAVS {
-        poolManager.unlock(abi.encode(key, transferBalances, swapBalances));
+        poolManager.unlock(abi.encode(poolKeys[poolId], transferBalances, swapBalances));
     }
 
     receive() external payable {}
