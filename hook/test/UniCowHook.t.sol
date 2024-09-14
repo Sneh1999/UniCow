@@ -19,6 +19,7 @@ import "forge-std/Test.sol";
 
 import {UniCowHook} from "../src/UniCowHook.sol";
 import {MockServiceManager} from "../src/MockServiceManager.sol";
+import {PoolId} from "v4-core/types/PoolId.sol";
 
 contract TestUniCowHook is Test, Deployers {
     using CurrencyLibrary for Currency;
@@ -34,7 +35,9 @@ contract TestUniCowHook is Test, Deployers {
         serviceManager = new MockServiceManager();
 
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+            Hooks.BEFORE_SWAP_FLAG |
+                Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG |
+                Hooks.AFTER_INITIALIZE_FLAG
         );
         deployCodeTo(
             "UniCowHook.sol:UniCowHook",
@@ -177,7 +180,11 @@ contract TestUniCowHook is Test, Deployers {
         });
         vm.stopPrank();
         vm.startPrank(address(serviceManager));
-        hook.settleBalances(key, transferBalances, swapBalances);
+        hook.settleBalances(
+            PoolId.unwrap(key.toId()),
+            transferBalances,
+            swapBalances
+        );
         vm.stopPrank();
         assertEq(currency1.balanceOf(address(0x1)), 0.001 ether);
         assertEq(currency0.balanceOf(address(0x2)), 0.001 ether);

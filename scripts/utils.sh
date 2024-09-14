@@ -35,6 +35,6 @@ start_anvil_docker() {
     docker run --platform linux/amd64 --rm -d --name anvil -p 8545:8545 $LOAD_STATE_VOLUME_DOCKER_ARG $DUMP_STATE_VOLUME_DOCKER_ARG \
         --entrypoint anvil \
         $FOUNDRY_IMAGE \
-        $LOAD_STATE_ANVIL_ARG $DUMP_STATE_ANVIL_ARG --hardfork cancun --host 0.0.0.0 --block-time 10
+        $LOAD_STATE_ANVIL_ARG $DUMP_STATE_ANVIL_ARG --hardfork cancun --host 0.0.0.0 --block-time 5
     sleep 2
 }

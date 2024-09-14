@@ -39,7 +39,7 @@ SERVICE_MANAGER_PROXY_ADDRESS=$(cat script/output/31337/unicow_avs_deployment_ou
 cd $parent_path
 cd ../hook
 forge clean
-forge script script/HookDeployer.s.sol --private-key $PRIVATE_KEY -vvvvv --broadcast --sig "run(address serviceManager)" -- $SERVICE_MANAGER_PROXY_ADDRESS
+forge script script/HookDeployer.s.sol --private-key $PRIVATE_KEY -vvv --broadcast --sig "run(address serviceManager)" -- $SERVICE_MANAGER_PROXY_ADDRESS
 
 HOOK_ADDRESS=$(cat script/output/31337/unicow_hook_deployment_output.json | jq -r '.addresses.hook')
 

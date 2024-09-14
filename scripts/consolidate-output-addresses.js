@@ -40,7 +40,14 @@ const consolidatedOutput = {
   },
 };
 
+const outputTsFile = `export const deploymentAddresses = ${JSON.stringify(
+  consolidatedOutput,
+  null,
+  2
+)} as const;
+`;
+
 fs.writeFileSync(
-  path.join(parentPath, "deployment_addresses.json"),
-  JSON.stringify(consolidatedOutput, null, 2)
+  path.join(parentPath + "/operator", "deployment_addresses.ts"),
+  outputTsFile
 );

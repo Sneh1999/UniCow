@@ -8,8 +8,9 @@ import {PoolModifyLiquidityTest} from "v4-core/test/PoolModifyLiquidityTest.sol"
 import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
-
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
+import {Quoter} from "v4-periphery/src/lens/Quoter.sol";
+import {TickMath} from "v4-core/libraries/TickMath.sol";
 
 import {UniCowHook} from "../src/UniCowHook.sol";
 import {HookMiner} from "../test/utils/HookMiner.sol";
@@ -19,12 +20,10 @@ import "forge-std/console.sol";
 import "forge-std/StdCheats.sol";
 
 contract HookDeployer is Script, StdCheats {
-    address constant CREATE2_DEPLOYER =
-        address(0x4e59b44847b379578588920cA78FbF26c0B4956C);
-
     IPoolManager manager;
     PoolModifyLiquidityTest lpRouter;
     PoolSwapTest swapRouter;
+    Quoter quoter;
 
     Currency token0;
     Currency token1;
@@ -36,6 +35,7 @@ contract HookDeployer is Script, StdCheats {
 
         vm.startBroadcast();
         deployFreshManagerAndRouters();
+        quoter = new Quoter(manager);
         deployMintAndApprove2Currencies();
 
         deployHookToAnvil(serviceManager);
@@ -51,6 +51,7 @@ contract HookDeployer is Script, StdCheats {
             "poolManager",
             address(manager)
         );
+        vm.serializeAddress(deployed_addresses, "quoter", address(quoter));
         vm.serializeAddress(deployed_addresses, "lpRouter", address(lpRouter));
         vm.serializeAddress(
             deployed_addresses,
@@ -121,10 +122,12 @@ contract HookDeployer is Script, StdCheats {
 
     function deployHookToAnvil(address serviceManager) internal {
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
+            Hooks.AFTER_INITIALIZE_FLAG |
+                Hooks.BEFORE_SWAP_FLAG |
+                Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
         );
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            CREATE2_DEPLOYER,
+            CREATE2_FACTORY,
             flags,
             type(UniCowHook).creationCode,
             abi.encode(address(manager), serviceManager)
@@ -152,8 +155,22 @@ contract HookDeployer is Script, StdCheats {
             IPoolManager.ModifyLiquidityParams({
                 tickLower: -120,
                 tickUpper: 120,
-                liquidityDelta: 1 ether,
+                liquidityDelta: 50 ether,
                 salt: bytes32(0)
+            }),
+            new bytes(0)
+        );
+
+        swapRouter.swap(
+            poolKey,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -0.0001 ether,
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({
+                takeClaims: false,
+                settleUsingBurn: false
             }),
             new bytes(0)
         );

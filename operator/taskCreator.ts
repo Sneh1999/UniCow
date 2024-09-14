@@ -11,6 +11,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { anvil, holesky } from "viem/chains";
 import { SwapRouterABI } from "./abis/SwapRouter";
 import { waitForTransactionReceipt } from "viem/actions";
+import { deploymentAddresses } from "./deployment_addresses";
 dotenv.config();
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
@@ -28,7 +29,7 @@ const publicClient = createPublicClient({
 
 async function createTask() {
   const swapRouter = getContract({
-    address: process.env.SWAP_ROUTER_ADDRESS! as `0x${string}`,
+    address: deploymentAddresses.hook.swapRouter,
     abi: SwapRouterABI,
     client: {
       public: publicClient,
@@ -38,11 +39,11 @@ async function createTask() {
 
   const txHash = await swapRouter.write.swap([
     {
-      currency0: process.env.TOKEN0! as `0x${string}`,
-      currency1: process.env.TOKEN1! as `0x${string}`,
+      currency0: deploymentAddresses.hook.token0,
+      currency1: deploymentAddresses.hook.token1,
       fee: 3000,
       tickSpacing: 120,
-      hooks: process.env.HOOK_ADDRESS! as `0x${string}`,
+      hooks: deploymentAddresses.hook.hook,
     },
     {
       zeroForOne: true,

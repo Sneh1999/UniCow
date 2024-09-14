@@ -1,4 +1,4 @@
-{
+export const deploymentAddresses = {
   "eigenlayer": {
     "avsDirectory": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
     "avsDirectoryImplementation": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
@@ -29,11 +29,12 @@
     "stakeRegistryProxy": "0x9E545E3C0baAB3E08CdfD552C960A1050f373042"
   },
   "hook": {
-    "hook": "0x7eC2CAf4E1e9F90aEDd620b848cDb7669B214088",
+    "hook": "0xc909D57bdb941f38AA3c028E0156e71ecC545088",
     "lpRouter": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
     "poolManager": "0x998abeb3E57409262aE5b751f60747921B33613E",
+    "quoter": "0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf",
     "swapRouter": "0x4826533B4897376654Bb4d4AD88B7faFD0C98528",
     "token0": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
-    "token1": "0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf"
+    "token1": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf"
   }
-}
+} as const;

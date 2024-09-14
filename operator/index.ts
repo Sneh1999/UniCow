@@ -1,12 +1,18 @@
 import { randomBytes } from "crypto";
 import * as dotenv from "dotenv";
 import {
+  BaseError,
   bytesToHex,
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
   createPublicClient,
   createWalletClient,
+  decodeAbiParameters,
+  decodeFunctionData,
   getContract,
   http,
   parseAbiItem,
+  parseAbiParameters,
   parseEventLogs,
 } from "viem";
 import { privateKeyToAccount, signMessage } from "viem/accounts";
@@ -15,29 +21,32 @@ import { DelegationManagerABI } from "./abis/DelegationManager";
 import { AvsDirectoryABI } from "./abis/AvsDirectory";
 import { StakeRegistryABI } from "./abis/StakeRegistry";
 import { ServiceManagerABI } from "./abis/ServiceManager";
+import { QuoterABI } from "./abis/Quoter";
+import { HookABI } from "./abis/Hook";
+import { deploymentAddresses } from "./deployment_addresses";
+import { AbiCoder } from "ethers/lib/utils";
+import { Mathb } from "./math";
 
 dotenv.config();
 
 let latestBatchNumber: bigint = BigInt(0);
-const MAX_BLOCKS_PER_BATCH = 10;
+const MAX_BLOCKS_PER_BATCH = 1;
 
 type Task = {
   zeroForOne: boolean;
-  amountSpecified: number;
+  amountSpecified: bigint;
   sqrtPriceLimitX96: bigint;
   sender: string;
   poolId: string;
   taskCreatedBlock: number;
+  poolOutputAmount: bigint;
+  poolInputAmount: bigint;
 };
 
-type Batches = {
-  [batch: string]: Task[];
-};
+const batches: Record<string, Task[]> = {};
 
-const batches: Batches = {};
 const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
-const stakeRegistryAddress = process.env
-  .STAKE_REGISTRY_ADDRESS! as `0x${string}`;
+const stakeRegistryAddress = deploymentAddresses.avs.stakeRegistryProxy;
 
 const walletClient = createWalletClient({
   chain: process.env.IS_DEV === "true" ? anvil : holesky,
@@ -51,26 +60,38 @@ const publicClient = createPublicClient({
 });
 
 const delegationManager = getContract({
-  address: process.env.DELEGATION_MANAGER_ADDRESS! as `0x${string}`,
+  address: deploymentAddresses.eigenlayer.delegation,
   abi: DelegationManagerABI,
   client: { public: publicClient, wallet: walletClient },
 });
 
 const registryContract = getContract({
-  address: stakeRegistryAddress,
+  address: deploymentAddresses.avs.stakeRegistryProxy,
   abi: StakeRegistryABI,
   client: { public: publicClient, wallet: walletClient },
 });
 
 const avsDirectory = getContract({
-  address: process.env.AVS_DIRECTORY_ADDRESS! as `0x${string}`,
+  address: deploymentAddresses.eigenlayer.avsDirectory,
   abi: AvsDirectoryABI,
   client: { public: publicClient, wallet: walletClient },
 });
 
 const serviceManager = getContract({
-  address: process.env.SERVICE_MANAGER_ADDRESS! as `0x${string}`,
+  address: deploymentAddresses.avs.serviceManagerProxy,
   abi: ServiceManagerABI,
+  client: { public: publicClient, wallet: walletClient },
+});
+
+const quoterContract = getContract({
+  address: deploymentAddresses.hook.quoter,
+  abi: QuoterABI,
+  client: { public: publicClient, wallet: walletClient },
+});
+
+const hook = getContract({
+  address: deploymentAddresses.hook.hook,
+  abi: HookABI,
   client: { public: publicClient, wallet: walletClient },
 });
 
@@ -105,7 +126,7 @@ async function registerOperator() {
     const digestHash =
       await avsDirectory.read.calculateOperatorAVSRegistrationDigestHash([
         account.address,
-        process.env.SERVICE_MANAGER_ADDRESS! as `0x${string}`,
+        deploymentAddresses.avs.serviceManagerProxy,
         salt,
         BigInt(expiry),
       ]);
@@ -135,21 +156,18 @@ const monitorNewTasks = async () => {
     {},
     {
       onLogs: (logs) => {
-        // console.log(logs);
         const parsedLogs = parseEventLogs({
           logs: logs,
           abi: ServiceManagerABI,
         });
         // @ts-ignore
         const task = parsedLogs[0].args.task;
-        batches[latestBatchNumber.toString()] = [
-          ...batches[latestBatchNumber.toString()],
-          task,
-        ];
-        console.log("Task added to batch:", {
-          task,
-          latestBatchNumber,
-        });
+
+        if (!batches[latestBatchNumber.toString()]) {
+          batches[latestBatchNumber.toString()] = [];
+        }
+        batches[latestBatchNumber.toString()].push(task);
+        console.log("Task added to batch:", task);
       },
     }
   );
@@ -157,74 +175,43 @@ const monitorNewTasks = async () => {
   return unwatch;
 };
 
-const processBatch = (batchNumber: bigint) => {
+const processBatch = async (batchNumber: bigint) => {
   const tasks = batches[batchNumber.toString()];
-  if (tasks.length === 0) {
+  if (!tasks || tasks.length === 0) {
     console.log("No tasks in batch", batchNumber);
     return;
   }
 
-  if (tasks.length > 1) {
-    // do an onchain swap
-    return;
-  }
-
-  /*
-    ETH -> USDC, 1 ETH = 3000 USDC
-
-    selling ETH for USDC
-    Task memory task1 = Task({
-        zeroForOne: true,
-        amountSpecified: -1,
-        sqrtPriceLimitX96: 2995,
-        sender: sender,
-        poolId: poolId,
-        taskCreatedBlock: uint32(block.number)
-    });
-
-    
-    -> pool will give 2997 USDC
-    -> minimum acceptable is 2995 USDC
-
-    Task memory task2 = Task({
-        zeroForOne: false,
-        amountSpecified: -3000,
-        sqrtPriceLimitX96: 3005,
-        sender: sender,
-        poolId: poolId,
-        taskCreatedBlock: uint32(block.number)
-    });
-
-    -> pool 0.9985 ETH
-    -> minimum acceptable is 0.998336 ETH
-
-    -----
-
-    can you give better than 2997 USDC to Task1, and better than 0.9985 ETH to Task2
-
-    they both win, if:
-
-    amount1Output > 2997 USDC
-    amount2Output > 0.9985 ETH
-
-    fulfill both orders against each other
-
-    amount1Output = 3000 USDC
-    amount2Output = 1 ETH
-
-    3004.5/1 > 3000/1 > 2997/1
-  */
-
   for (let i = 0; i < tasks.length; i++) {
-    for (let j = i + 1; j < tasks.length; j++) {
-      if (tasks[i].zeroForOne === tasks[j].zeroForOne) {
-        continue;
-      }
-      const task1Limit =
-        (tasks[i].sqrtPriceLimitX96 / BigInt(2 ^ 96)) ^ BigInt(2);
-      const task2Limit =
-        (tasks[j].sqrtPriceLimitX96 / BigInt(2 ^ 96)) ^ BigInt(2);
+    const poolKey = await hook.read.poolKeys([
+      tasks[i].poolId as `0x${string}`,
+    ]);
+
+    const res = await quoterContract.simulate.quoteExactInputSingle([
+      {
+        poolKey: {
+          currency0: poolKey[0],
+          currency1: poolKey[1],
+          fee: poolKey[2],
+          tickSpacing: poolKey[3],
+          hooks: poolKey[4],
+        },
+        zeroForOne: tasks[i].zeroForOne,
+        exactAmount: -tasks[i].amountSpecified,
+        sqrtPriceLimitX96: BigInt(0),
+        hookData: "0x",
+      },
+    ]);
+    //  take absolute for bigint
+
+    if (tasks[i].zeroForOne) {
+      tasks[i].poolInputAmount = Mathb.abs(res.result[0][0]);
+      tasks[i].poolOutputAmount = Mathb.abs(res.result[0][1]);
+    } else {
+      tasks[i].poolInputAmount = Mathb.abs(res.result[0][1]);
+      tasks[i].poolOutputAmount = Mathb.abs(res.result[0][0]);
     }
+    console.log("Output Amounts added to task", tasks[i]);
   }
 };
 // create a listener to get latest block number
@@ -252,8 +239,8 @@ const monitorNewBlocks = async () => {
 
 async function main() {
   await registerOperator();
-  await monitorNewBlocks();
-  await monitorNewTasks();
+
+  await Promise.all([monitorNewBlocks(), monitorNewTasks()]);
 }
 
 main().catch((error) => {

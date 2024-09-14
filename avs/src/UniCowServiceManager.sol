@@ -157,4 +157,8 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
             ECDSAStakeRegistry(stakeRegistry).getOperatorWeight(operator) >=
             ECDSAStakeRegistry(stakeRegistry).minimumWeight();
     }
+
+    function setHook(address _hook) external {
+        hook = _hook;
+    }
 }

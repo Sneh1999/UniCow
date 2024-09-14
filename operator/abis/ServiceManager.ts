@@ -17,7 +17,6 @@ export const ServiceManagerABI = [
         type: "address",
         internalType: "address",
       },
-      { name: "_hook", type: "address", internalType: "address" },
     ],
     stateMutability: "nonpayable",
   },
@@ -26,6 +25,13 @@ export const ServiceManagerABI = [
     name: "allTaskHashes",
     inputs: [{ name: "", type: "uint32", internalType: "uint32" }],
     outputs: [{ name: "", type: "bytes32", internalType: "bytes32" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "allTaskResponses",
+    inputs: [{ name: "", type: "uint32", internalType: "uint32" }],
+    outputs: [{ name: "", type: "bytes", internalType: "bytes" }],
     stateMutability: "view",
   },
   {
@@ -137,6 +143,13 @@ export const ServiceManagerABI = [
   },
   {
     type: "function",
+    name: "operatorHasMinimumWeight",
+    inputs: [{ name: "operator", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "bool", internalType: "bool" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "owner",
     inputs: [],
     outputs: [{ name: "", type: "address", internalType: "address" }],
@@ -217,10 +230,88 @@ export const ServiceManagerABI = [
   },
   {
     type: "function",
+    name: "respondToBatch",
+    inputs: [
+      {
+        name: "tasks",
+        type: "tuple[]",
+        internalType: "struct UniCowServiceManager.Task[]",
+        components: [
+          { name: "zeroForOne", type: "bool", internalType: "bool" },
+          {
+            name: "amountSpecified",
+            type: "int256",
+            internalType: "int256",
+          },
+          {
+            name: "sqrtPriceLimitX96",
+            type: "uint160",
+            internalType: "uint160",
+          },
+          { name: "sender", type: "address", internalType: "address" },
+          { name: "poolId", type: "bytes32", internalType: "bytes32" },
+          {
+            name: "taskCreatedBlock",
+            type: "uint32",
+            internalType: "uint32",
+          },
+        ],
+      },
+      {
+        name: "referenceTaskIndices",
+        type: "uint32[]",
+        internalType: "uint32[]",
+      },
+      {
+        name: "transferBalances",
+        type: "tuple[]",
+        internalType: "struct IUniCowHook.TransferBalance[]",
+        components: [
+          { name: "amount", type: "uint256", internalType: "uint256" },
+          {
+            name: "currency",
+            type: "address",
+            internalType: "address",
+          },
+          { name: "sender", type: "address", internalType: "address" },
+        ],
+      },
+      {
+        name: "swapBalances",
+        type: "tuple[]",
+        internalType: "struct IUniCowHook.SwapBalance[]",
+        components: [
+          {
+            name: "amountSpecified",
+            type: "int256",
+            internalType: "int256",
+          },
+          { name: "zeroForOne", type: "bool", internalType: "bool" },
+          {
+            name: "sqrtPriceLimitX96",
+            type: "uint160",
+            internalType: "uint160",
+          },
+        ],
+      },
+      { name: "signature", type: "bytes", internalType: "bytes" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "rewardsInitiator",
     inputs: [],
     outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "setHook",
+    inputs: [{ name: "_hook", type: "address", internalType: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -281,6 +372,25 @@ export const ServiceManagerABI = [
     inputs: [{ name: "_metadataURI", type: "string", internalType: "string" }],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    name: "BatchResponse",
+    inputs: [
+      {
+        name: "referenceTaskIndices",
+        type: "uint32[]",
+        indexed: true,
+        internalType: "uint32[]",
+      },
+      {
+        name: "sender",
+        type: "address",
+        indexed: false,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
   },
   {
     type: "event",

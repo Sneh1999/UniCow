@@ -11,6 +11,7 @@ import {BalanceDelta, BalanceDeltaLibrary, add} from "v4-core/types/BalanceDelta
 import {PoolId} from "v4-core/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {CurrencySettler} from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
+import "forge-std/console2.sol";
 
 interface IServiceManager {
     function createNewTask(
@@ -112,6 +113,10 @@ contract UniCowHook is BaseHook {
         onlyPoolManager
         returns (bytes4, BeforeSwapDelta, uint24)
     {
+        if (hookData.length == 0) {
+            return (this.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+        }
+
         // get the sender from the hookData
         (int8 cowEnabled, address sender) = abi.decode(
             hookData,
@@ -126,13 +131,13 @@ contract UniCowHook is BaseHook {
         if (sender == address(0)) {
             return (this.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
         }
-
+        console2.log("checks passed");
         poolManager.mint(
             address(this),
             (swapParams.zeroForOne ? key.currency0 : key.currency1).toId(),
             uint256(-swapParams.amountSpecified)
         );
-
+        console2.log("minting");
         IServiceManager(serviceManager).createNewTask(
             swapParams.zeroForOne,
             swapParams.amountSpecified,
@@ -140,7 +145,7 @@ contract UniCowHook is BaseHook {
             sender,
             PoolId.unwrap(key.toId())
         );
-
+        console2.log("task created");
         return (
             this.beforeSwap.selector,
             toBeforeSwapDelta(-int128(swapParams.amountSpecified), 0),
@@ -227,11 +232,13 @@ contract UniCowHook is BaseHook {
     //  function to settle balances
 
     function settleBalances(
-       bytes32 poolId,
+        bytes32 poolId,
         TransferBalance[] memory transferBalances,
         SwapBalance[] memory swapBalances
     ) external onlyAVS {
-        poolManager.unlock(abi.encode(poolKeys[poolId], transferBalances, swapBalances));
+        poolManager.unlock(
+            abi.encode(poolKeys[poolId], transferBalances, swapBalances)
+        );
     }
 
     receive() external payable {}
