@@ -29,6 +29,7 @@ contract HookDeployer is Script, StdCheats {
     Currency token1;
 
     UniCowHook hook;
+    uint160 constant SQRT_PRICE_1_4 = 158456325028528675187087900672;
 
     function run(address serviceManager) external {
         vm.createSelectFork("http://localhost:8545");
@@ -146,16 +147,16 @@ contract HookDeployer is Script, StdCheats {
         });
         manager.initialize(
             poolKey,
-            79228162514264337593543950336, // SQRT_PRICE_1_1
+            SQRT_PRICE_1_4, // 1 A = 4 B roughly
             new bytes(0)
         );
 
         lpRouter.modifyLiquidity(
             poolKey,
             IPoolManager.ModifyLiquidityParams({
-                tickLower: -120,
-                tickUpper: 120,
-                liquidityDelta: 50 ether,
+                tickLower: TickMath.minUsableTick(120),
+                tickUpper: TickMath.maxUsableTick(120),
+                liquidityDelta: 2000 ether,
                 salt: bytes32(0)
             }),
             new bytes(0)
@@ -165,7 +166,7 @@ contract HookDeployer is Script, StdCheats {
             poolKey,
             IPoolManager.SwapParams({
                 zeroForOne: true,
-                amountSpecified: -0.0001 ether,
+                amountSpecified: -1 ether,
                 sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
             }),
             PoolSwapTest.TestSettings({

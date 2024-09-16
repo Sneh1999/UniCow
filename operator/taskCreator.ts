@@ -27,7 +27,7 @@ const publicClient = createPublicClient({
   transport: http(),
 });
 
-async function createTask() {
+async function createTask(numTasks: number) {
   const swapRouter = getContract({
     address: deploymentAddresses.hook.swapRouter,
     abi: SwapRouterABI,
@@ -37,40 +37,60 @@ async function createTask() {
     },
   });
 
-  const txHash = await swapRouter.write.swap([
-    {
-      currency0: deploymentAddresses.hook.token0,
-      currency1: deploymentAddresses.hook.token1,
-      fee: 3000,
-      tickSpacing: 120,
-      hooks: deploymentAddresses.hook.hook,
-    },
-    {
-      zeroForOne: true,
-      amountSpecified: -BigInt(0.001 * 1e18),
-      sqrtPriceLimitX96: BigInt(4295128739 + 1),
-    },
-    {
-      takeClaims: false,
-      settleUsingBurn: false,
-    },
-    encodeAbiParameters(parseAbiParameters("int8,address"), [
-      1,
-      account.address,
-    ]),
-  ]);
+  const amounts = [10, 20];
+  const amountsBigInt = amounts.map((amount) => BigInt(amount * 1e18));
 
-  await waitForTransactionReceipt(publicClient, {
-    hash: txHash,
-  });
-  console.log("task created", txHash);
+  for (let i = 0; i < numTasks; i++) {
+    const randomAmount =
+      amountsBigInt[Math.floor(Math.random() * amounts.length)];
+
+    const swapParamsZeroForOne = {
+      zeroForOne: true,
+      amountSpecified: -randomAmount,
+      sqrtPriceLimitX96: BigInt("152398000000000000000000000000"), // 3.7
+    };
+    const swapParamsOneForZero = {
+      zeroForOne: false,
+      amountSpecified: -(randomAmount * BigInt(4)),
+      sqrtPriceLimitX96: BigInt(
+        "162369000000000000000000000000" // 4.2
+      ),
+    };
+
+    const randomSwapParams =
+      Math.random() < 0.5 ? swapParamsZeroForOne : swapParamsOneForZero;
+
+    const txHash = await swapRouter.write.swap([
+      {
+        currency0: deploymentAddresses.hook.token0,
+        currency1: deploymentAddresses.hook.token1,
+        fee: 3000,
+        tickSpacing: 120,
+        hooks: deploymentAddresses.hook.hook,
+      },
+      randomSwapParams,
+      {
+        takeClaims: false,
+        settleUsingBurn: false,
+      },
+      encodeAbiParameters(parseAbiParameters("int8,address"), [
+        1,
+        account.address,
+      ]),
+    ]);
+
+    await waitForTransactionReceipt(publicClient, {
+      hash: txHash,
+    });
+    console.log("task created", txHash);
+  }
 }
 
 async function main() {
-  // create task every 1 min
-  //   setInterval(async () => {
-  await createTask();
-  //   }, 60 * 1000);
+  // read CLI args
+  const numTasks = parseInt(process.argv[2]);
+
+  await createTask(numTasks);
 }
 
 main().catch((error) => {

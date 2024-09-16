@@ -17,6 +17,9 @@ importers:
       ethers:
         specifier: ^5.7.2
         version: 5.7.2
+      js-big-decimal:
+        specifier: ^2.1.0
+        version: 2.1.0
       viem:
         specifier: ^2.21.3
         version: 2.21.3(typescript@5.5.4)
@@ -364,6 +367,9 @@ packages:
     resolution: {integrity: sha512-hEzjY+x9u9hPmBom9IIAqdJCwNLax+xrPb51vEPpERoFlIxgmZcHzsT5jKG06nvInKOBGvReAVz80Umed5CczQ==}
     peerDependencies:
       ws: '*'
+
+  js-big-decimal@2.1.0:
+    resolution: {integrity: sha512-6BOJi5gJ/u5KIOiRjwDnYee64wDw48/mzObV10L5ZYZ/u3ujpzJrO1JyIdIYbfxJPhIT7+oKn7d/1Fw1kOsh2w==}
 
   js-sha3@0.8.0:
     resolution: {integrity: sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q==}
@@ -905,6 +911,8 @@ snapshots:
   isows@1.0.4(ws@8.17.1):
     dependencies:
       ws: 8.17.1
+
+  js-big-decimal@2.1.0: {}
 
   js-sha3@0.8.0: {}
 

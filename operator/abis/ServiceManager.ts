@@ -115,6 +115,47 @@ export const ServiceManagerABI = [
   },
   {
     type: "function",
+    name: "getMessageHash",
+    inputs: [
+      { name: "poolId", type: "bytes32", internalType: "bytes32" },
+      {
+        name: "transferBalances",
+        type: "tuple[]",
+        internalType: "struct IUniCowHook.TransferBalance[]",
+        components: [
+          { name: "amount", type: "uint256", internalType: "uint256" },
+          {
+            name: "currency",
+            type: "address",
+            internalType: "address",
+          },
+          { name: "sender", type: "address", internalType: "address" },
+        ],
+      },
+      {
+        name: "swapBalances",
+        type: "tuple[]",
+        internalType: "struct IUniCowHook.SwapBalance[]",
+        components: [
+          {
+            name: "amountSpecified",
+            type: "int256",
+            internalType: "int256",
+          },
+          { name: "zeroForOne", type: "bool", internalType: "bool" },
+          {
+            name: "sqrtPriceLimitX96",
+            type: "uint160",
+            internalType: "uint160",
+          },
+        ],
+      },
+    ],
+    outputs: [{ name: "", type: "bytes32", internalType: "bytes32" }],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
     name: "getOperatorRestakedStrategies",
     inputs: [{ name: "_operator", type: "address", internalType: "address" }],
     outputs: [{ name: "", type: "address[]", internalType: "address[]" }],
@@ -255,6 +296,7 @@ export const ServiceManagerABI = [
             type: "uint32",
             internalType: "uint32",
           },
+          { name: "taskId", type: "uint32", internalType: "uint32" },
         ],
       },
       {
@@ -439,6 +481,7 @@ export const ServiceManagerABI = [
             type: "uint32",
             internalType: "uint32",
           },
+          { name: "taskId", type: "uint32", internalType: "uint32" },
         ],
       },
     ],

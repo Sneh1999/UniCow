@@ -11,6 +11,7 @@
     "bls-signatures": "^2.0.3",
     "dotenv": "^10.0.0",
     "ethers": "^5.7.2",
+    "js-big-decimal": "^2.1.0",
     "viem": "^2.21.3"
   },
   "devDependencies": {

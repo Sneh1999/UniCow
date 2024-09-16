@@ -33,14 +33,16 @@ cd $parent_path
 cd ../avs
 forge script script/AVSDeployer.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --sig "run()"
 
+sleep 2
 SERVICE_MANAGER_PROXY_ADDRESS=$(cat script/output/31337/unicow_avs_deployment_output.json | jq -r '.addresses.serviceManagerProxy')
 
 # deploying hook contracts
 cd $parent_path
 cd ../hook
 forge clean
-forge script script/HookDeployer.s.sol --private-key $PRIVATE_KEY -vvv --broadcast --sig "run(address serviceManager)" -- $SERVICE_MANAGER_PROXY_ADDRESS
+forge script script/HookDeployer.s.sol --private-key $PRIVATE_KEY -vvvvv --broadcast --sig "run(address serviceManager)" -- $SERVICE_MANAGER_PROXY_ADDRESS
 
+sleep 2
 HOOK_ADDRESS=$(cat script/output/31337/unicow_hook_deployment_output.json | jq -r '.addresses.hook')
 
 # set hook address in AVS service manager

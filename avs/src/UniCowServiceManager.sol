@@ -57,6 +57,7 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
         address sender;
         bytes32 poolId;
         uint32 taskCreatedBlock;
+        uint32 taskId;
     }
 
     modifier onlyHook() {
@@ -90,7 +91,8 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
             sqrtPriceLimitX96: sqrtPriceLimitX96,
             sender: sender,
             poolId: poolId,
-            taskCreatedBlock: uint32(block.number)
+            taskCreatedBlock: uint32(block.number),
+            taskId: latestTaskNum
         });
         allTaskHashes[latestTaskNum] = keccak256(abi.encode(task));
         emit NewTaskCreated(latestTaskNum, task);
@@ -148,6 +150,14 @@ contract UniCowServiceManager is ECDSAServiceManagerBase, Pausable {
         );
 
         emit BatchResponse(referenceTaskIndices, msg.sender);
+    }
+
+    function getMessageHash(
+        bytes32 poolId,
+        IUniCowHook.TransferBalance[] memory transferBalances,
+        IUniCowHook.SwapBalance[] memory swapBalances
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encode(poolId, transferBalances, swapBalances));
     }
 
     function operatorHasMinimumWeight(

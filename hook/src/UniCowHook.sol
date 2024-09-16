@@ -9,9 +9,10 @@ import {BeforeSwapDelta, toBeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-cor
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {BalanceDelta, BalanceDeltaLibrary, add} from "v4-core/types/BalanceDelta.sol";
 import {PoolId} from "v4-core/types/PoolId.sol";
+import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {CurrencySettler} from "@uniswap/v4-core/test/utils/CurrencySettler.sol";
-import "forge-std/console2.sol";
+import "forge-std/console.sol";
 
 interface IServiceManager {
     function createNewTask(
@@ -27,6 +28,8 @@ contract UniCowHook is BaseHook {
     using CurrencyLibrary for Currency;
     using CurrencySettler for Currency;
     using BalanceDeltaLibrary for BalanceDelta;
+    using StateLibrary for IPoolManager;
+
     address public serviceManager;
 
     mapping(bytes32 => PoolKey) public poolKeys;
@@ -131,13 +134,11 @@ contract UniCowHook is BaseHook {
         if (sender == address(0)) {
             return (this.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
         }
-        console2.log("checks passed");
         poolManager.mint(
             address(this),
             (swapParams.zeroForOne ? key.currency0 : key.currency1).toId(),
             uint256(-swapParams.amountSpecified)
         );
-        console2.log("minting");
         IServiceManager(serviceManager).createNewTask(
             swapParams.zeroForOne,
             swapParams.amountSpecified,
@@ -145,7 +146,7 @@ contract UniCowHook is BaseHook {
             sender,
             PoolId.unwrap(key.toId())
         );
-        console2.log("task created");
+
         return (
             this.beforeSwap.selector,
             toBeforeSwapDelta(-int128(swapParams.amountSpecified), 0),
@@ -164,6 +165,13 @@ contract UniCowHook is BaseHook {
         for (uint256 i = 0; i < transferBalances.length; i++) {
             //  convert from claim tokens to actual tokens and send to user
             uint256 amount = transferBalances[i].amount;
+
+            uint256 hookBalanceOfCurrency = poolManager.balanceOf(
+                address(this),
+                Currency.wrap(transferBalances[i].currency).toId()
+            );
+            console.log("Hook Balance of currency", hookBalanceOfCurrency);
+            console.log("Burning amount", amount);
 
             poolManager.burn(
                 address(this),
@@ -239,6 +247,21 @@ contract UniCowHook is BaseHook {
         poolManager.unlock(
             abi.encode(poolKeys[poolId], transferBalances, swapBalances)
         );
+    }
+
+    function getPoolSlot0(
+        bytes32 poolId
+    )
+        external
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint24 protocolFee,
+            uint24 lpFee
+        )
+    {
+        return poolManager.getSlot0(PoolId.wrap(poolId));
     }
 
     receive() external payable {}
