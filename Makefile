@@ -1,6 +1,6 @@
 build-contracts:
-	cd hook && forge build && cd ..
-	cd avs && forge build && cd ..
+	cd hook && forge install && forge build && cd ..
+	cd avs && forge install && forge build && cd ..
 
 test-contracts:
 	cd hook && forge test && cd ..
